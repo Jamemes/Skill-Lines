@@ -37,9 +37,6 @@ function SkillButton:upgrades_aquired(skill_id)
 	aquired.basic = get_skills(skill and skill[1] and skill[1].upgrades)
 	aquired.aced = get_skills(skill and skill[2] and skill[2].upgrades)
 
-	Global.skill_lines[#Global.skill_lines] = aquired.basic and self._skill_id .. "_basic"
-	Global.skill_lines[#Global.skill_lines] = aquired.basic and self._skill_id .. "_aced"
-
 	return aquired
 end
 
