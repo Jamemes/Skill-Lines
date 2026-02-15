@@ -119,11 +119,11 @@ tweak_data.skilltree.skill_lines = {
 	{
 		name = "menu_sentry_expert_skill_line",
 		line = {
-			"master_craftsman",
 			"sentry_gun",
+			"sentry_targeting_package",
 			"sentry_2_0",
 			"sentry_gun_2x",
-			last_skill = "sentry_targeting_package"
+			last_skill = "master_craftsman"
 		}
 	},
 	{

@@ -1,5 +1,7 @@
 Hooks:Add("LocalizationManagerPostInit", "SkillLines.LocalizationManagerPostInit", function()
 	LocalizationManager:add_localized_strings({
+		menu_skill_line_warn_message = "You have to reset all skills on the main skill trees.",
+		menu_skill_lines = "Skill Lines",
 		menu_insider_skill_line = "Insider",
 		menu_control_skill_line = "Hostage Expert",
 		menu_medic_skill_line = "Medic",
@@ -8,7 +10,7 @@ Hooks:Add("LocalizationManagerPostInit", "SkillLines.LocalizationManagerPostInit
 		menu_shotgun_expert_skill_line = "Shotgunner",
 		menu_ammo_expert_skill_line = "Supplier",
 		menu_armorer_skill_line = "Armorer",
-		menu_discipline_skill_line = "Martial discipline",
+		menu_discipline_skill_line = "Martial Artist",
 		menu_hardware_expert_skill_line = "Hardware Specialist",
 		menu_trip_mine_expert_skill_line = "Explosive Specialist",
 		menu_sentry_expert_skill_line = "Sentry Expert",
@@ -28,11 +30,58 @@ local function get_skills(tbl)
 	end
 end
 
+local function make_fine_text(text)
+	local x, y, w, h = text:text_rect()
+
+	if text:wrap() == true then
+		text:set_h(h)
+	else
+		text:set_size(w, h)
+	end
+
+	text:set_position(math.round(text:x()), math.round(text:y()))
+end
+
+local function create_bg(panel, alpha)
+	panel:rect({
+		alpha = alpha or 0.5,
+		layer = -2,
+		color = Color.black
+	})
+
+	local blur = panel:bitmap({
+		layer = -1,
+		texture = "guis/textures/test_blur_df",
+		render_template = "VertexColorTexturedBlur3D",
+		w = panel:panel():w(),
+		h = panel:panel():h()
+	})
+
+	local function func(o)
+		local start_blur = 0
+
+		over(0.6, function (p)
+			o:set_alpha(math.lerp(start_blur, 1, p))
+		end)
+	end
+
+	blur:animate(func)
+
+	BoxGuiObject:new(panel, {
+		sides = {
+			1,
+			1,
+			1,
+			1
+		}
+	})
+end
+
 function SkillButton:upgrades_aquired(skill_id)
 	local aquired = {}
 	local skill = tweak_data.skilltree.skills[skill_id]
-	local previous_skill = self._last_skill == self._skill_id and tweak_data.skilltree.skills[self._first_skill] or tweak_data.skilltree.skills[self._previous_skill]
-	local previous_upgraded = get_skills(previous_skill and previous_skill[1] and previous_skill[1].upgrades)
+	local previous_skill = tweak_data.skilltree.skills[self._first_skill]
+	local previous_upgraded = self._last_skill == self._skill_id and true or get_skills(previous_skill and previous_skill[1] and previous_skill[1].upgrades)
 	aquired.unlocked = self._first_skill == self._skill_id or previous_upgraded
 	aquired.basic = get_skills(skill and skill[1] and skill[1].upgrades)
 	aquired.aced = get_skills(skill and skill[2] and skill[2].upgrades)
@@ -46,8 +95,10 @@ function SkillButton:aquire_upgrades(skill_id, tier, aquire, mute)
 		for _, upgrade in pairs(skill[tier].upgrades or {}) do
 			if not aquire then
 				managers.upgrades:unaquire(upgrade)
+				Global.skilltree_manager.skill_lines_upgrades[upgrade] = nil
 			else
 				managers.upgrades:aquire(upgrade)
+				Global.skilltree_manager.skill_lines_upgrades[upgrade] = true
 			end
 		end
 		self._aquired = self:upgrades_aquired(skill_id)
@@ -153,19 +204,13 @@ function SkillButton:init(parent, params)
 				self:aquire_upgrades(self._skill_id, 1)
 			end
 
-			if not self:upgrades_aquired(self._skill_id).basic and params.skill ~= "last_skill" then
+			if self._first_skill == self._skill_id and not self:upgrades_aquired(self._skill_id).basic and params.skill ~= "last_skill" then
 				for i = 1, #line do
 					if i > params.skill then
 						self:aquire_upgrades(line[i], 1, nil, true)
 						self:aquire_upgrades(line[i], 2, nil, true)
 					end
 				end
-			end
-
-			if self._first_skill == self._skill_id and not self._aquired.basic then
-				local last_skill = tweak_data.skilltree.skill_lines[params.line].line.last_skill
-				self:aquire_upgrades(last_skill, 1, nil, true)
-				self:aquire_upgrades(last_skill, 2, nil, true)
 			end
 		end
 
@@ -218,20 +263,7 @@ end
 function SkillButton:update(t, dt)
 end
 
-local function make_fine_text(text)
-	local x, y, w, h = text:text_rect()
-
-	if text:wrap() == true then
-		text:set_h(h)
-	else
-		text:set_size(w, h)
-	end
-
-	text:set_position(math.round(text:x()), math.round(text:y()))
-end
-
 SkillLinesComponent = SkillLinesComponent or class(MenuGuiComponentGeneric)
-SkillLinesComponent.MAX_POINTS = 21
 
 local padding = 10
 function SkillLinesComponent:init(ws, fullscreen_ws, node)
@@ -239,11 +271,41 @@ function SkillLinesComponent:init(ws, fullscreen_ws, node)
 	self._fullscreen_ws = fullscreen_ws
 	self._init_layer = self._ws:panel():layer()
 	self._buttons = {}
+	
+	if managers.skilltree:trees_unlocked() ~= 0 then
+		self._warn = ws:panel():panel({
+			layer = 51,
+			x = padding,
+			y = padding,
+			w = 500,
+			h = 50,
+		})
+		create_bg(self._warn, 0.75)
+		self._warn:set_center(ws:panel():center_x(), ws:panel():center_y())
+			
+		local message = self._warn:text({
+			text = managers.localization:text("menu_skill_line_warn_message"),
+			font_size = tweak_data.menu.pd2_large_font_size / 2,
+			font = tweak_data.menu.pd2_large_font,
+			color = tweak_data.screen_colors.text
+		})
+		make_fine_text(message)
+		message:set_center(self._warn:w() / 2, self._warn:h() / 2)
+
+		return
+	end
+
+	Global.skilltree_manager.skill_lines_upgrades = Global.skilltree_manager.skill_lines_upgrades or {}
+	self.MAX_POINTS = math.floor(managers.experience:current_level() / 3.5)
 
 	self:_setup()
 end
 
 function SkillLinesComponent:close()
+	if alive(self._warn) then
+		self._ws:panel():remove(self._warn)
+	end
+
 	if alive(self._panel) then
 		self._ws:panel():remove(self._panel)
 	end
@@ -355,11 +417,11 @@ function SkillLinesComponent:update_info_list(info)
 	make_fine_text(skill_name)
 	skill_name:set_lefttop(bitmap:right() + 10, 20)
 
-	local text = managers.localization:text(info and info.desc_id, {
-		profession = managers.localization:text(info and info.name_id),
-		points = nil
-	})
+	local editable_stats = info and tweak_data.upgrades.skill_descs[info.name] or {}
+	editable_stats.basic = " "
+	editable_stats.pro = " "
 
+	local text = managers.localization:text(info and info.desc_id, editable_stats)
 	local skill_text = self._info_scroll:canvas():text({
 		word_wrap = true,
 		name = "skill_text",
@@ -429,7 +491,7 @@ function SkillLinesComponent:mouse_moved(o, x, y)
 
 	local used, pointer = nil
 	self._selected_item = nil
-	
+
 	local function scroll_move_mouse(scroll)
 		if self[scroll] then
 			self[scroll]._over_scroll_bar = self[scroll]._scroll_bar:visible() and self[scroll]._scroll_bar:inside(x, y)
@@ -442,7 +504,7 @@ function SkillLinesComponent:mouse_moved(o, x, y)
 			end
 		end
 	end
-	
+
 	scroll_move_mouse("_info_scroll")
 	scroll_move_mouse("_list_scroll")
 
@@ -539,41 +601,6 @@ function SkillLinesComponent:update(t, dt)
 	for _, btn in pairs(self._buttons) do
 		btn:update(t, dt)
 	end
-end
-
-local function create_bg(panel)
-	panel:rect({
-		alpha = 0.5,
-		layer = -2,
-		color = Color.black
-	})
-
-	local blur = panel:bitmap({
-		layer = -1,
-		texture = "guis/textures/test_blur_df",
-		render_template = "VertexColorTexturedBlur3D",
-		w = panel:panel():w(),
-		h = panel:panel():h()
-	})
-
-	local function func(o)
-		local start_blur = 0
-
-		over(0.6, function (p)
-			o:set_alpha(math.lerp(start_blur, 1, p))
-		end)
-	end
-
-	blur:animate(func)
-
-	BoxGuiObject:new(panel, {
-		sides = {
-			1,
-			1,
-			1,
-			1
-		}
-	})
 end
 
 function SkillLinesComponent:_create_list_panel()
@@ -684,12 +711,13 @@ function SkillLinesComponent:_create_info_panel()
 end
 
 Hooks:Add("CoreMenuData.LoadDataMenu", "SkillLinesComponent.CoreMenuData.LoadDataMenu", function(menu_id, menu)
-	if menu_id == "start_menu" or menu_id == "pause_menu" then
+	if menu_id == "start_menu" then
 		local new_node = {
 			_meta = "node",
 			name = "skill_lines",
 			menu_components = "open_skill_lines",
 			back_callback = "save_progress",
+			font_size = 24,
 			no_item_parent = true,
 			no_menu_wrapper = true,
 			scene_state = menu_id == "start_menu" and "blackmarket_item" or nil,
@@ -703,9 +731,8 @@ Hooks:Add("CoreMenuData.LoadDataMenu", "SkillLinesComponent.CoreMenuData.LoadDat
 end)
 
 Hooks:Add("MenuManagerBuildCustomMenus", "SkillLinesComponent_populate_categories", function(menu_manager, nodes)
-	MenuHelper:AddMenuItem(nodes.main, "skill_lines", "menu_skilltree", "", "divider_test2", "after")
-	-- MenuHelper:AddMenuItem(nodes.pause, "skill_lines", "menu_skilltree", "", "edit_game_settings", "after")
-	MenuHelper:AddMenuItem(nodes.lobby, "skill_lines", "menu_skilltree", "", "edit_game_settings", "after")
+	MenuHelper:AddMenuItem(nodes.main, "skill_lines", "menu_skill_lines", "", "divider_test2", "after")
+	MenuHelper:AddMenuItem(nodes.lobby, "skill_lines", "menu_skill_lines", "", "edit_game_settings", "after")
 end)
 
 MenuHelper:AddComponent("open_skill_lines", SkillLinesComponent)
