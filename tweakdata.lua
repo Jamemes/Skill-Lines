@@ -23,6 +23,7 @@ tweak_data.skilltree.skill_lines = {
 	{
 		name = "menu_medic_skill_line",
 		line = {
+			"mastermind",
 			"combat_medic",
 			"shades",
 			"medic_2x",
@@ -63,9 +64,10 @@ tweak_data.skilltree.skill_lines = {
 	{
 		name = "menu_ammo_expert_skill_line",
 		line = {
+			"enforcer",
 			"portable_saw",
-			"ammo_2x",
 			"carbon_blade",
+			"ammo_2x",
 			last_skill = "ammo_reservoir"
 		}
 	},
@@ -95,7 +97,7 @@ tweak_data.skilltree.skill_lines = {
 	{
 		name = "menu_hardware_expert_skill_line",
 		line = {
-			"master_craftsman",
+			"ghost",
 			"hardware_expert",
 			"drill_expert",
 			"ecm_2x",
@@ -107,6 +109,7 @@ tweak_data.skilltree.skill_lines = {
 	{
 		name = "menu_trip_mine_expert_skill_line",
 		line = {
+			"technician",
 			"trip_miner",
 			"trip_mine_expert",
 			"shaped_charge",
@@ -116,6 +119,7 @@ tweak_data.skilltree.skill_lines = {
 	{
 		name = "menu_sentry_expert_skill_line",
 		line = {
+			"master_craftsman",
 			"sentry_gun",
 			"sentry_2_0",
 			"sentry_gun_2x",

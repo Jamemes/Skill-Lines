@@ -44,7 +44,11 @@ function SkillButton:aquire_upgrades(skill_id, tier, aquire, mute)
 	local skill = tweak_data.skilltree.skills[skill_id]
 	if skill and tier then
 		for _, upgrade in pairs(skill[tier].upgrades or {}) do
-			Global.upgrades_manager.aquired[upgrade] = aquire
+			if not aquire then
+				managers.upgrades:unaquire(upgrade)
+			else
+				managers.upgrades:aquire(upgrade)
+			end
 		end
 		self._aquired = self:upgrades_aquired(skill_id)
 
@@ -264,7 +268,7 @@ function SkillLinesComponent:_setup()
 		layer = 51
 	})
 
-	self._panel:set_h(550)
+	self._panel:set_h(580)
 	self._panel:set_center_x(parent:center_x())
 	self._panel:set_center_y(parent:center_y())
 
@@ -338,8 +342,7 @@ function SkillLinesComponent:update_info_list(info)
 			info and info.icon_xy[2] * 64,
 			64,
 			64
-		},
-		-- color = tweak_data.screen_colors.item_stage_3
+		}
 	})
 
 	local skill_name = self._info_scroll:canvas():text({
@@ -541,11 +544,12 @@ end
 local function create_bg(panel)
 	panel:rect({
 		alpha = 0.5,
-		layer = 0,
+		layer = -2,
 		color = Color.black
 	})
 
 	local blur = panel:bitmap({
+		layer = -1,
 		texture = "guis/textures/test_blur_df",
 		render_template = "VertexColorTexturedBlur3D",
 		w = panel:panel():w(),
@@ -591,8 +595,8 @@ function SkillLinesComponent:_create_list_panel()
 	})
 
 	local count = 0
+	local line_h = 120
 	for line, skills in pairs(tweak_data.skilltree.skill_lines) do
-		local line_h = 120
 		local skill_line_panel = self._list_scroll:canvas():panel({
 			x = padding,
 			y = padding + (line_h + 10) * count - padding,
@@ -612,10 +616,10 @@ function SkillLinesComponent:_create_list_panel()
 		make_fine_text(line_name)
 
 		local row = 10
-		for index, skill in ipairs(skills.line) do
+		for index, _ in ipairs(skills.line) do
 			local skill_panel = skill_line_panel:panel({
 				w = skill_line_panel:w() / 8,
-				h = line_h - 40
+				h = line_h - 45
 			})
 			create_bg(skill_panel)
 			skill_panel:set_top(line_name:bottom() + 2)
@@ -634,7 +638,7 @@ function SkillLinesComponent:_create_list_panel()
 
 		local last_skill_panel = skill_line_panel:panel({
 			w = skill_line_panel:w() / 8,
-			h = line_h - 40
+			h = line_h - 45
 		})
 		create_bg(last_skill_panel)
 		last_skill_panel:set_righttop(skill_line_panel:w() - 10, 10)
@@ -656,7 +660,7 @@ function SkillLinesComponent:_create_list_panel()
 	self._points_counter:set_bottom(self._text_header:bottom() - 5)
 	self._points_counter:set_left(self._text_header:right() + 10)
 
-	self._list_scroll:update_canvas_size()
+	self._list_scroll:set_canvas_size(nil, (line_h + padding) * count)
 end
 
 function SkillLinesComponent:_create_info_panel()
@@ -668,7 +672,7 @@ function SkillLinesComponent:_create_info_panel()
 		x = padding,
 		y = padding,
 		w = self._panel:w() / 3.5,
-		h = self._panel:h()
+		h = self._panel:h() / 1.3
 	})
 	self._info_panel:set_left(self._list_panel:right() + padding)
 	create_bg(self._info_panel)
